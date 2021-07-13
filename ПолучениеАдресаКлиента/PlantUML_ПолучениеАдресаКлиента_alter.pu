@@ -1,0 +1,85 @@
+@startuml
+title "Получение адреса клиента"
+actor user
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+control "A3 API" as a3
+
+user -> mobapp : Ввод города
+activate mobapp
+    mobapp -> back : checkCity (city)
+    activate back
+        back -> a3 : [метод проверки из fias-searcher]
+        activate a3
+            a3 --> back : [city is found]
+        deactivate a3
+        back --> mobapp :  response: checkCity (cityId) [city is found]
+    deactivate back
+        mobapp ->> dbmob : saveTimed (cityId) [временное сохранение информации]
+    mobapp --> user : город найден [индикация]
+    mobapp -> mobapp : unlock field "street"
+deactivate mobapp
+
+
+...ожидание ввода улицы...
+
+user -> mobapp : Ввод улицы
+activate mobapp
+    mobapp -> back : checkStreet (cityId, street)
+    activate back
+        back -> a3 : [метод проверки из fias-searcher]
+        activate a3
+            a3 --> back : [street is found]
+        deactivate a3
+        back --> mobapp :  response: checkStreet(streetId) [street is found]
+    deactivate back
+    mobapp ->> dbmob : saveTimed (streetId) [временное сохранение информации]
+    mobapp --> user : улица найдена [индикация]
+    mobapp -> mobapp : unlock fields: "house"
+deactivate mobapp
+
+
+...ожидание ввода номера дома...
+
+    user -> mobapp : Ввод номера дома
+    activate mobapp
+        mobapp -> back : checkHouse (cityId, streetId, house)
+        activate back
+            back -> a3 : [метод проверки из fias-searcher]
+            activate a3
+                a3 --> back : [house is found]
+            deactivate a3
+            back --> mobapp :  response: checkHouse(addressId, houseId) [house is found]
+        deactivate back
+        mobapp ->> dbmob : saveTimed (addressId, houseId) [временное сохранение информации]
+        mobapp --> user : дом найден [индикация]
+        mobapp -> mobapp : unlock fields: "flat" and checkbox "noneFlat"
+    deactivate mobapp
+
+...ожидание ввода номера квартиры или отметки чекбокса noneFlat...
+
+    user -> mobapp : Ввод номера квартиры
+    activate mobapp
+        user -> mobapp : "Далее"
+        mobapp -> mobapp : switchScreen[добавление Поставщиков]
+        mobapp -> mobapp : loader
+        mobapp ->> dbmob : newAddress (addressId, cityId, streetId, houseId, flatNumber) [привязка адреса к устройству]
+        mobapp -> back : saveAddressAndGetProviders (addressId, userId, cityId, streetId, houseId, flatNumber)
+            activate back
+                back -> db : saveAddress (addressId, userId, cityId, streetId, houseId)
+                    activate db
+                        db --> back : success saveAddress (addressId)
+                    deactivate db
+                back -> a3 : getProviders (address)
+                    activate a3
+                        a3 --> back: listProviders
+                    deactivate a3
+                back --> mobapp :  success saveAddressAndGetProviders (addressId, listProviders)
+            deactivate back
+        mobapp -> mobapp : close loader
+        mobapp -> mobapp : view listProviders [в виде списка с выбором нескольких]
+        mobapp --> user : по вашему адресу найдено listProviders Поставщиков услуг.\nВыберете одного или нескольких для продолжения\nили введите ниже ИНН / название для поиска
+    deactivate mobapp
+@enduml

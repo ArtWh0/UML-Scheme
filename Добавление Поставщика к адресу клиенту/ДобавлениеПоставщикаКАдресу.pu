@@ -1,0 +1,16 @@
+@startuml
+title "Добавление Поставщика к адресу"
+actor user
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+control "A3 API" as a3
+' сделать альтернативу с вводом данных в полях из выпадающего списка при нажатии на отдельного Поставщика
+
+user -> mobapp : выбор Поставщика из предложенного списка
+activate mobapp
+
+deactivate mobapp
+
+@enduml

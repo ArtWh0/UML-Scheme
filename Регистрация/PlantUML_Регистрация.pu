@@ -1,0 +1,109 @@
+@startuml
+title "Регистрация"
+actor user
+boundary "DeviceUser" as device
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+control "FAPI" as fapi
+            user -> mobapp : вводНомераТелефона
+            activate mobapp
+                mobapp -> mobapp : валидацияФормата
+        mobapp --> user : верный формат номера
+            deactivate mobapp
+        user -> mobapp : нажал "Регистрация"
+        activate mobapp
+            mobapp -> back : sendRegisterCode
+            activate back
+                back -> fapi : POST front_new/registration/init
+                activate fapi
+                    fapi --> back : response  front_new/registration/init
+                deactivate fapi
+                back -> fapi : POST front_new/registration/otp/send
+                activate fapi
+                    fapi --> back : response  front_new/registration/otp/send
+                deactivate fapi
+                    back --> mobapp : successSending
+                    mobapp -> mobapp : switchScreen
+                    mobapp --> user : отправлено смс с кодом подтверждения
+            deactivate back
+        deactivate mobapp
+        ...клиент ожидает смс...
+        user -> mobapp : ввод кода подтверждения
+        activate mobapp
+            mobapp -> back : checkRegisterCode
+            activate back
+                back -> fapi : POST /front_new/registration/otp/validate
+                activate fapi
+                    fapi --> back : response  /front_new/registration/otp/validate
+                deactivate fapi
+                    back --> mobapp : successCheck
+            deactivate back
+            mobapp ->> dbmob : saveMobilePhone [временное сохранение моб. номера пользователя]
+            mobapp -> mobapp : switchScreen [ввод пароля для входа]
+            mobapp --> user : Введите новый пароль для входа
+        deactivate mobapp
+            ...ожидание ввода нового пароля...
+            user -> mobapp : Ввод 4-х значного пароля
+            activate mobapp
+                mobapp ->> dbmob : saveCode [временное сохранение введённого пароля]
+                mobapp -> mobapp : switchScreen [подтверждение пароля для входа]
+                mobapp --> user : введите пароль повторно
+            deactivate mobapp
+            ...ожидание повторного ввода нового пароля...
+                    user -> mobapp : повторный ввод пароля
+                    activate mobapp
+                        mobapp -> mobapp : checkCode [сравнение пароля с введённым раннее]
+                        mobapp --> user : пароль не совпадает с введённым раннее
+                mobapp -> back : createUser (phoneNumber, code, [deviceInfo])
+                activate back
+                    back -> db : createUser (userId, phoneNumber, code, [deviceInfo])
+                    activate db
+                        db --> back : success createUser (userId)
+                    deactivate db
+                    back --> mobapp : success createUser (userId)
+                deactivate back
+                    mobapp ->> dbmob : saveUserId [долговременное сохранение идентификатора пользователя]
+                    mobapp ->> dbmob : deleteMobilePhone [удаление из памяти номера телефона пользователя]
+                    mobapp -> mobapp : switchScreen [запрос на отпечаток пальца]
+                    mobapp -> device : fingerprint access
+                deactivate mobapp
+                activate device
+                    device -> user : access fingerprint?
+                    activate mobapp
+                    mobapp -> mobapp :  switchScreen [запрос на faceid]
+                    user --> device : access: true
+                    device --> mobapp : access: true
+                deactivate device
+                    mobapp ->> dbmob : createUserAuth (userId, fingerprint: true) [долговременное сохранение способа авторизации]
+                    mobapp -> back : createUserAuth (userId, fingerprint: true)
+                    activate back
+                        back -> db : createUserAuth (userId, fingerprint: true)
+                        activate db
+                            db --> back : success
+                        deactivate db
+                        back --> mobapp : success
+                    deactivate back
+                    mobapp -> mobapp :  switchScreen [запрос на faceid]
+                    mobapp -> device : faceid access
+                deactivate mobapp
+                activate device
+                    device -> user : access faceid?
+                    activate mobapp
+                    mobapp -> mobapp :  switchScreen [ввод данных по адресу],/nпроцесс регистрации завершён
+                    user --> device : access: true
+                    device --> mobapp : access: true
+                deactivate device
+                    mobapp ->> dbmob : createUserAuth (userId, faceid: true) [долговременное сохранение способа авторизации]
+                    mobapp -> back : createUserAuth (userId, faceid: true)
+                    activate back
+                        back -> db : createUserAuth (userId, faceid: true)
+                        activate db
+                            db --> back : success
+                        deactivate db
+                        back --> mobapp : success
+                    deactivate back
+                    mobapp -> mobapp :  switchScreen [ввод данных по адресу],/nпроцесс регистрации завершён
+                    deactivate mobapp
+@enduml

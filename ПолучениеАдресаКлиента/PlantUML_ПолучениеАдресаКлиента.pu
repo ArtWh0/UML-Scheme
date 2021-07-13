@@ -1,0 +1,139 @@
+@startuml
+title "Получение адреса клиента (детальное)"
+actor user
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+control "A3 API" as a3
+
+
+user -> mobapp : Ввод города
+activate mobapp
+    mobapp -> back : checkCity (city)
+    activate back
+        back -> a3 : [метод проверки из fias-searcher]
+        activate a3
+
+alt failure: город не найден
+
+            a3 --> back : [city not found]
+        back --> mobapp :  response: checkCity [city not found]
+    mobapp --> user : город не найден [индикация]
+
+else success: город найден
+
+            a3 --> back : [city is found]
+        deactivate a3
+        back --> mobapp :  response: checkCity (cityId) [city is found]
+    deactivate back
+
+        mobapp ->> dbmob : saveTimed (cityId) [временное сохранение информации]
+
+    mobapp --> user : город найден [индикация]
+    mobapp -> mobapp : unlock field "street"
+end
+deactivate mobapp
+
+
+...ожидание ввода улицы...
+
+user -> mobapp : Ввод улицы
+activate mobapp
+    mobapp -> back : checkStreet (cityId, street)
+    activate back
+        back -> a3 : [метод проверки из fias-searcher]
+        activate a3
+alt failure: улица не найдена
+            a3 --> back : [street not found]
+        back --> mobapp :  response: checkStreet [street not found]
+    mobapp --> user : такой улицы в указанном городе не найдено [индикация]
+else success: улица найдена
+            a3 --> back : [street is found]
+        deactivate a3
+        back --> mobapp :  response: checkStreet(streetId) [street is found]
+    deactivate back
+
+    mobapp ->> dbmob : saveTimed (streetId) [временное сохранение информации]
+    mobapp --> user : улица найдена [индикация]
+    mobapp -> mobapp : unlock fields: "house"
+end
+deactivate mobapp
+
+
+...ожидание ввода номера дома...
+
+    user -> mobapp : Ввод номера дома
+    activate mobapp
+        mobapp -> back : checkHouse (cityId, streetId, house)
+        activate back
+            back -> a3 : [метод проверки из fias-searcher]
+            activate a3
+    alt failure: дом не найден
+                a3 --> back : [house not found]
+            back --> mobapp :  response: checkHouse [house not found]
+        mobapp --> user : такого дома на указанной улице не найдено [индикация]
+    else success: дом найден
+                a3 --> back : [house is found]
+            deactivate a3
+            back --> mobapp :  response: checkHouse(addressId, houseId) [house is found]
+        deactivate back
+
+            mobapp ->> dbmob : saveTimed (addressId, houseId) [временное сохранение информации]
+
+        mobapp --> user : дом найден [индикация]
+        mobapp -> mobapp : unlock fields: "flat" and checkbox "noneFlat"
+    end
+    deactivate mobapp
+
+
+...ожидание ввода номера квартиры или отметки чекбокса noneFlat...
+
+    alt или: ввод номера квартиры
+    user -> mobapp : Ввод номера квартиры
+    activate mobapp
+    user -> mobapp : "Далее"
+    mobapp -> mobapp : switchScreen[добавление Поставщиков]
+    mobapp -> mobapp : loader
+
+
+            mobapp ->> dbmob : newAddress (addressId, cityId, streetId, houseId, flatNumber) [привязка адреса к устройству]
+
+        mobapp -> back : saveAddressAndGetProviders (addressId, userId, cityId, streetId, houseId, flatNumber)
+        activate back
+                back -> db : saveAddress (addressId, userId, cityId, streetId, houseId)
+                activate db
+                    db --> back : success saveAddress (addressId)
+                deactivate db
+    else или: отметка чекбокса noneFlat
+    user -> mobapp : отметка чекбокса noneFlat
+    user -> mobapp : "Далее"
+    mobapp -> mobapp : switchScreen[добавление Поставщиков]
+    mobapp -> mobapp : loader
+
+        mobapp ->> dbmob : newAddress (addressId, cityId, streetId, houseId) [привязка адреса к устройству]
+
+    mobapp -> back : saveAddressAndGetProviders (addressId, userId, cityId, streetId, houseId)
+            back -> db : saveAddress (addressId, userId, cityId, streetId, houseId, flatNumber)
+
+            activate db
+                db --> back : success saveAddress (addressId)
+            deactivate db
+end
+            back -> a3 : getProviders (address)
+            activate a3
+                a3 --> back: listProviders
+            deactivate a3
+            back --> mobapp :  success saveAddressAndGetProviders (addressId, listProviders)
+            deactivate back
+    alt количестве элементов listProviders >= 1
+    mobapp -> mobapp : close loader
+    mobapp -> mobapp : view listProviders [в виде списка с выбором нескольких]
+    mobapp --> user : по вашему адресу найдено listProviders Поставщиков услуг.\nВыберете одного или нескольких для продолжения\nили введите ниже ИНН / название для поиска
+    else в ином случае
+    mobapp -> mobapp : close loader
+    mobapp --> user : по вашему адресу не найдено Поставщиков услуг.\nВведите ниже ИНН / название Поставщика для поиска
+    deactivate mobapp
+    end
+
+@enduml
