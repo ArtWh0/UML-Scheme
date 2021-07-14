@@ -15,4 +15,38 @@ activate mobapp
     mobapp --> user : введите данные
 deactivate mobapp
 
+...ожидание ввода данных...
+user ->>  mobapp : Ввод данных
+user -> mobapp : Нажатие "Далее"
+activate mobapp
+    mobapp -> back : searchInProvider(providerId, param1, param2...) [поиск введённых данных]
+    activate back
+        back -> a3 : searchInProvider(providerId, param1, param2...) [поиск введённых данных]
+alt Данные не найдены
+        a3 --> back : result NotFound
+        back --> mobapp : result NotFound
+        mobapp --> user : Данные не найдены [индикация]
+'else Необходимо уточнение (доввод данных)
+'        a3 --> back : result needMoreInfo (providerId, param1, param2...)
+'        back --> mobapp : result needMoreInfo (providerId, param1, param2...)
+'        mobapp -> mobapp : switchScreen [отображение дополнительных полей ввода для идентификации клиента]
+'        mobapp --> user : введите дополнительные данные
+'
+'        ...ожидание ввода данных...
+'
+'        user ->>  mobapp : Ввод дополнительных данных
+'        user -> mobapp : Нажатие "Далее"
+else Данные найдены
+         a3 --> back : result searchSuccess (providerId, info, invoice...)
+         back -> db : addNewProvider (addressId, providerId, params, info...)
+         activate db
+            db --> back : result success
+         deactivate db
+         back --> mobapp : result searchSuccess (providerId, info, invoice...)
+         mobapp -> mobapp : switchScreen [отображение экрана оплаты]
+         mobapp --> user : Оплатить, добавить дополнительного Поставщика\nили перейти на дашборд [завершение добавления Поставщика к адресу]
+end
+    deactivate back
+deactivate mobapp
+
 @enduml
