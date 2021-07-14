@@ -8,9 +8,11 @@ entity "DB BACK" as db
 control "A3 API" as a3
 ' сделать альтернативу с вводом данных в полях из выпадающего списка при нажатии на отдельного Поставщика
 
-user -> mobapp : выбор Поставщика из предложенного списка
+user -> mobapp : переход на добавление отдельного Поставщика
 activate mobapp
-
+    mobapp -> mobapp : switchScreen [отображение необходимых полей\nввода по Поставщику listProviders/providerId\nиз listProviders/providerId/params]
+    'mobapp -> back : getProviderParams (listProviders/providerId)\n[Получение необходимых полей\nдля данного Поставщика]
+    mobapp --> user : введите данные
 deactivate mobapp
 
 @enduml
