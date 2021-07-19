@@ -10,7 +10,9 @@ control "A3 API" as a3
 
 user -> mobapp : выбор Поставщика из предложенного списка
 activate mobapp
-
+    mobapp -> mobapp : отображение первичной формы ввода данных\n[данные из listProviders]
+    mobapp --> user : "Введите начальные данные"
 deactivate mobapp
+
 
 @enduml
