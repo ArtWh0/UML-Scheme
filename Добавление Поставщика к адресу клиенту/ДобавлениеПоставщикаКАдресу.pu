@@ -14,5 +14,45 @@ activate mobapp
     mobapp --> user : "Введите начальные данные"
 deactivate mobapp
 
+...ожидание ввода данных клиентом...
 
+user -> mobapp : ввод данных
+activate mobapp
+    mobapp -> back : request: checkUserData (providerId, step=first, addressId, [outData])
+    activate back
+        back -> a3 : request: checkUserData (providerId, [outData])
+        activate a3
+loop пока не step is final
+
+alt step is progress
+            a3 --> back : response: checkUserData (providerId, step=progress, [inData])
+        deactivate a3
+        back --> mobapp : response: checkUserData (providerId, addressId, step=progress, [inData])
+    deactivate back
+    mobapp -> mobapp: отображение следующей формы ввода данных\n[данные из inData]
+    mobapp -> user : данные корректны, введите дополнительные
+deactivate mobapp
+
+...ожидание ввода данных клиентом...
+
+user -> mobapp : ввод дополнительных данных
+activate mobapp
+    mobapp -> back : request: checkUserData (providerId, step=progress, addressId, [outData])
+    activate back
+        back -> a3 : request: checkUserData (providerId, [outData])
+
+else step is final
+            activate a3
+                a3 --> back : response: checkUserData (providerId, step=final, [inData])
+            deactivate a3
+            back ->> db : save providerUserData in addressId
+            back --> mobapp : response: checkUserData (providerId, addressId, step=final)
+        deactivate back
+    mobapp -> mobapp : отображение выбора "оплата счёта" или "переход на дашборд"
+    mobapp --> user : Оплатить счёт или перейти на дашборд?
+end
+
+deactivate mobapp
+
+end
 @enduml
