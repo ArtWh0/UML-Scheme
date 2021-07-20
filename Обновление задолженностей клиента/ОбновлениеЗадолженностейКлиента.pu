@@ -1,0 +1,28 @@
+@startuml
+title "Обновление задолженностей клиента"
+
+actor "MobileApp" as mobapp
+control "BACK" as back
+entity "DB BACK" as db
+control "A3 API" as a3
+
+mobapp ->> back : updateInvoices (userId)
+activate back
+    back -> db : request: getAllUserData (userId)
+    activate db
+        db --> back : response: getAllUserData (userId, userData)
+    deactivate db
+loop для каждого элемента userData
+    back -> a3 : request: getNewInvoices (providerId, outData)
+    activate a3
+        a3 --> back : response: getNewInvoices (providerId, inData)
+    deactivate a3
+    back -> db : request: updateProviderUserData (userId, providerId, inData)
+    activate db
+        db --> back : response: updateProviderUserData ([update is complete])
+    deactivate db
+end
+
+deactivate back
+
+@enduml

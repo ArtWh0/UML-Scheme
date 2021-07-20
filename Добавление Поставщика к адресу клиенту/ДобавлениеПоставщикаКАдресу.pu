@@ -2,7 +2,6 @@
 title "Добавление Поставщика к адресу"
 actor user
 boundary "MobileApp" as mobapp
-entity "DB MobileApp" as dbmob
 control "BACK" as back
 entity "DB BACK" as db
 control "A3 API" as a3

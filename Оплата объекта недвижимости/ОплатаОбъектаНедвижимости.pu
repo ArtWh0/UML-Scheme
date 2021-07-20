@@ -1,0 +1,54 @@
+@startuml
+title "Подготовка к оплате задолженностей по объекту(ам) недвижимости"
+actor user
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+control "A3 API" as a3
+
+user -> mobapp : Определение объектов недвижимости
+
+loop для каждого объекта недвижимости
+
+activate mobapp
+    mobapp -> back : request : getUserAddressInfo (userId, addressId)
+    activate back
+        back -> db : request : getUserAddressInfo (userId, addressId)
+        activate db
+            db --> back : response : getUserAddressInfo (userId, addressId, [providerId, userData])
+        deactivate db
+
+
+
+loop для каждой задолженности в объекте
+
+    mobapp -> back : request : getProviderPaymentData (userId, providerId)
+      activate back
+          back -> db : request : getProviderPaymentData (userId, providerId)
+          activate db
+              db --> back : response : getProviderPaymentData (userId, providerId, paymentData)
+          deactivate db
+          back -> a3 : request: checkPayment (paymentData)
+          activate a3
+alt checkPayment (true)
+              a3 --> back : response: checkPayment (true)
+          back --> back : дополнение контейнера [addressId, providerId, paymentData] данными
+else checkPayment (false)
+              a3 --> back : response: checkPayment (false)
+          deactivate a3
+
+          back --> back : дополнение контейнера [addressId, providerId, paymentData=null] данными
+end
+end
+end
+          back --> mobapp : response : getProviderPaymentData (userId, [addressId, providerId, paymentData])
+      deactivate back
+      mobapp -> mobapp : формирование списка "к оплате" на основе контейнера [addressId, providerId, paymentData]
+      mobapp -> mobapp : переход на экран оплаты
+      mobapp --> user : Проверьте список оплаты.\nВозможны позиции, где необходимо дополнить данные.
+deactivate mobapp
+
+...корректировка клиентом списка оплаты и в случае нажатия "Оплатить" - переход к выбору способа оплаты...
+
+@enduml

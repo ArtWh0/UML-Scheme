@@ -1,0 +1,56 @@
+@startuml
+title "Авторизация"
+actor user
+boundary "DeviceUser" as device
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+
+alt авторизация вводом 4-х значного кода
+
+user -> mobapp : ввод кода
+activate mobapp
+    mobapp -> dbmob : request: getInfo
+    activate dbmob
+        dbmob --> mobapp : response: getInfo (deviceId, userId)
+    deactivate dbmob
+    mobapp -> back : request: authUser (deviceId, userId, code)
+    activate back
+        back -> db : request: checkUserCode (deviceId, userId, code)
+        activate db
+            db --> back : response: checkUserCode (true)
+        deactivate db
+        back --> mobapp : response: authUser (true)
+    deactivate back
+    mobapp --> user : Авторизация успешна
+deactivate mobapp
+
+else авторизация отпечатком пальца
+
+user -> mobapp : авторизация по отпечатку пальца
+activate mobapp
+    mobapp -> device : fingerprint access is true ?
+    activate device
+        device --> mobapp : fingerprint access is true
+    deactivate device
+    mobapp -> mobapp : switchScreen [ожидание отпечатка]
+
+
+...ожидание отпечатка пальца от пользователя...
+
+loop пока отпечаток не будет верным
+
+user -> device : отпечаток пальца
+activate device
+    device -> device : отпечаток пальца существующий?
+    device ->> mobapp : отпечаток верный
+deactivate device
+
+end
+mobapp -> mobapp : авторизация пройдена, switchScreen
+mobapp --> user : Авторизация успешна
+deactivate mobapp
+
+end
+@enduml
