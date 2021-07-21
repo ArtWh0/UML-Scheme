@@ -7,24 +7,27 @@ entity "DB MobileApp" as dbmob
 control "BACK" as back
 entity "DB BACK" as db
 control "FAPI" as fapi
-            user -> mobapp : вводНомераТелефона
-            activate mobapp
-                mobapp -> mobapp : валидацияФормата
-        mobapp --> user : верный формат номера
-            deactivate mobapp
-        user -> mobapp : нажал "Регистрация"
+
+        user -> mobapp : Получение номера телефона клиента
         activate mobapp
-            mobapp -> back : sendRegisterCode
+            mobapp ->> dbmob : request: saveTimedInfo (mobilePhone) [временное сохранение моб. номера пользователя]
+            mobapp -> back : request: sendRegisterCode (mobilePhone)
             activate back
-                back -> fapi : POST front_new/registration/init
+                back -> db : request: checkUser (mobilePhone)
+                activate db
+                    db --> back : response: checkUser (result, mobilePhone, userId)
+                deactivate db
+alt пользователя нет в базе (checkUser (result=0))
+                back -> fapi : request: front_new/registration/init (mobilePhone)
                 activate fapi
-                    fapi --> back : response  front_new/registration/init
+                    fapi --> back : response: front_new/registration/init (status, operationId)
                 deactivate fapi
-                back -> fapi : POST front_new/registration/otp/send
+                back ->> db : request: saveTimedInfo (operationId, mobilePhone) [временное сохранение связки]
+                back -> fapi : request: front_new/registration/otp/send (operationId)
                 activate fapi
-                    fapi --> back : response  front_new/registration/otp/send
+                    fapi --> back : response: front_new/registration/otp/send (status, data)
                 deactivate fapi
-                    back --> mobapp : successSending
+                    back --> mobapp : response: sendRegisterCode (success)
                     mobapp -> mobapp : switchScreen
                     mobapp --> user : отправлено смс с кодом подтверждения
             deactivate back
@@ -32,22 +35,25 @@ control "FAPI" as fapi
         ...клиент ожидает смс...
         user -> mobapp : ввод кода подтверждения
         activate mobapp
-            mobapp -> back : checkRegisterCode
+            mobapp -> back : request: checkRegisterCode (code, mobilePhone)
             activate back
-                back -> fapi : POST /front_new/registration/otp/validate
+                back -> db : request: checkInfo (mobilePhone)
+                activate db
+                    db --> back : response: checkInfo (mobilePhone, operationId)
+                deactivate db
+                back -> fapi : request: front_new/registration/otp/validate (code, operationId)
                 activate fapi
-                    fapi --> back : response  /front_new/registration/otp/validate
+                    fapi --> back : response: front_new/registration/otp/validate (status, data)
                 deactivate fapi
-                    back --> mobapp : successCheck
+                    back --> mobapp : response: checkRegisterCode (success)
             deactivate back
-            mobapp ->> dbmob : saveMobilePhone [временное сохранение моб. номера пользователя]
             mobapp -> mobapp : switchScreen [ввод пароля для входа]
             mobapp --> user : Введите новый пароль для входа
         deactivate mobapp
             ...ожидание ввода нового пароля...
             user -> mobapp : Ввод 4-х значного пароля
             activate mobapp
-                mobapp ->> dbmob : saveCode [временное сохранение введённого пароля]
+                mobapp ->> dbmob : request: saveTimedInfo (code) [временное сохранение введённого пароля]
                 mobapp -> mobapp : switchScreen [подтверждение пароля для входа]
                 mobapp --> user : введите пароль повторно
             deactivate mobapp
@@ -55,55 +61,41 @@ control "FAPI" as fapi
                     user -> mobapp : повторный ввод пароля
                     activate mobapp
                         mobapp -> mobapp : checkCode [сравнение пароля с введённым раннее]
-                        mobapp --> user : пароль не совпадает с введённым раннее
-                mobapp -> back : createUser (phoneNumber, code, [deviceInfo])
+                mobapp ->> dbmob : request: deleteTimedInfo (code) [удаление из памяти временных данных]
+                mobapp -> back : request: createUser (mobilePhone, code)
                 activate back
-                    back -> db : createUser (userId, phoneNumber, code, [deviceInfo])
+                    back -> db : request: createUser (userId, mobilePhone, code)
                     activate db
-                        db --> back : success createUser (userId)
+                        db --> back : response: createUser (status, userId)
                     deactivate db
-                    back --> mobapp : success createUser (userId)
+                    back --> mobapp : response: createUser (status, userId)
                 deactivate back
-                    mobapp ->> dbmob : saveUserId [долговременное сохранение идентификатора пользователя]
-                    mobapp ->> dbmob : deleteMobilePhone [удаление из памяти номера телефона пользователя]
+                    mobapp ->> dbmob : request: saveInfo (userId) [долговременное сохранение идентификатора пользователя]
+                    mobapp ->> dbmob : request: deleteTimedInfo (mobilePhone) [удаление из памяти временных данных]
                     mobapp -> mobapp : switchScreen [запрос на отпечаток пальца]
                     mobapp -> device : fingerprint access
                 deactivate mobapp
                 activate device
                     device -> user : access fingerprint?
-                    activate mobapp
-                    mobapp -> mobapp :  switchScreen [запрос на faceid]
                     user --> device : access: true
                     device --> mobapp : access: true
-                deactivate device
-                    mobapp ->> dbmob : createUserAuth (userId, fingerprint: true) [долговременное сохранение способа авторизации]
-                    mobapp -> back : createUserAuth (userId, fingerprint: true)
-                    activate back
-                        back -> db : createUserAuth (userId, fingerprint: true)
-                        activate db
-                            db --> back : success
-                        deactivate db
-                        back --> mobapp : success
-                    deactivate back
-                    mobapp -> mobapp :  switchScreen [запрос на faceid]
+                                    deactivate device
+                    activate mobapp
+
                     mobapp -> device : faceid access
                 deactivate mobapp
                 activate device
                     device -> user : access faceid?
-                    activate mobapp
-                    mobapp -> mobapp :  switchScreen [ввод данных по адресу],/nпроцесс регистрации завершён
                     user --> device : access: true
                     device --> mobapp : access: true
                 deactivate device
-                    mobapp ->> dbmob : createUserAuth (userId, faceid: true) [долговременное сохранение способа авторизации]
-                    mobapp -> back : createUserAuth (userId, faceid: true)
-                    activate back
-                        back -> db : createUserAuth (userId, faceid: true)
-                        activate db
-                            db --> back : success
-                        deactivate db
-                        back --> mobapp : success
-                    deactivate back
-                    mobapp -> mobapp :  switchScreen [ввод данных по адресу],/nпроцесс регистрации завершён
-                    deactivate mobapp
+                activate mobapp
+                    mobapp -> mobapp :  switchScreen [ввод данных по адресу],\nпроцесс регистрации завершён
+else пользователь есть в базе (checkUser (result=1))
+activate back
+back --> mobapp : response: sendRegisterCode (user to authorization)
+deactivate back
+mobapp -> mobapp :  switchScreen [переход на авторизацию],\nпроцесс регистрации не потребовался
+                        deactivate mobapp
+end
 @enduml
