@@ -7,32 +7,23 @@ entity "DB MobileApp" as dbmob
 control "BACK" as back
 entity "DB BACK" as db
 control "FAPI" as fapi
-    alt response false
-        loop корректировка и доввод номера до успеха
-            user -> mobapp : вводНомераТелефона
-            activate mobapp
-                mobapp -> mobapp : валидацияФормата
-                mobapp --> user : неверный формат номера
-        end
-    else response true
-        mobapp --> user : верный формат номера
-            deactivate mobapp
-        user -> mobapp : нажал "Регистрация"
+
+        user -> mobapp : вводНомераТелефона
         activate mobapp
-            mobapp -> back : sendRegisterCode
+            mobapp -> back : request: sendRegisterCode (mobilePhone)
             activate back
-                back -> fapi : POST front_new/registration/init
+                back -> fapi : request: front_new/registration/init (mobilePhone)
                 activate fapi
-                    fapi --> back : response  front_new/registration/init
+                    fapi --> back : response: front_new/registration/init (status, operationId)
                 deactivate fapi
-                back -> fapi : POST front_new/registration/otp/send
+                back -> fapi : request: front_new/registration/otp/send (operationId)
                 activate fapi
-                    fapi --> back : response  front_new/registration/otp/send
+                    fapi --> back : response: front_new/registration/otp/send (status, data)
                 deactivate fapi
-                alt ошибка отправки кода
+                alt ошибка отправки кода (status != 1)
                     back --> mobapp : errorSending
-                    mobapp --> user : ошибка отправки кода [расшифровка ошибки]
-                else код успешно отправлен
+                    mobapp --> user : ошибка отправки кода
+                else код успешно отправлен (status = 1)
                     back --> mobapp : successSending
                     mobapp -> mobapp : switchScreen
                     mobapp --> user : отправлено смс с кодом подтверждения
@@ -158,5 +149,5 @@ control "FAPI" as fapi
                     end
                     deactivate mobapp
             end
-    end
+
 @enduml
