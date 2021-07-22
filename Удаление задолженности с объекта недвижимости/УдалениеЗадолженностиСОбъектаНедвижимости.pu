@@ -1,0 +1,32 @@
+@startuml
+title "Удаление задолженности с объекта недвижимости"
+actor user
+boundary "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+
+user -> mobapp : Инициация удаления задолженности(ей)
+activate mobapp
+    mobapp -> back : request: deleteProvider (userId, [addressId, providerId])
+    activate back
+
+loop для каждого элемента [addressId, providerId]
+
+        back -> db : request: deleteProvider (userId, addressId, providerId)
+        activate db
+            db --> back : response: deleteProvider (success)
+        deactivate db
+end
+        back -> db : request: getAllUserData (userId)
+        activate db
+            db --> back : response: getAllUserData (userId, userData)
+        deactivate db
+        back --> mobapp : response: getAllUserData (userData)
+    deactivate back
+    mobapp ->> dbmob : [обновление временных данных userData]
+    mobapp -> mobapp : обновление представления клиента
+    mobapp --> user : Обновлённый экран
+deactivate mobapp
+
+@enduml

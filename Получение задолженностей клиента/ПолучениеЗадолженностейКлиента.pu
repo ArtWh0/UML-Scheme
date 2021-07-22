@@ -1,0 +1,20 @@
+@startuml
+title "Получение задолженностей клиента"
+
+actor "MobileApp" as mobapp
+entity "DB MobileApp" as dbmob
+control "BACK" as back
+entity "DB BACK" as db
+
+mobapp -> back : getInvoices (userId)
+activate back
+    back -> db : request: getAllUserData (userId)
+    activate db
+        db --> back : response: getAllUserData (userId, userData)
+    deactivate db
+    back --> mobapp : response: getAllUserData (userData)
+deactivate back
+
+mobapp ->> dbmob : [временное сохранение данных userData]
+
+@enduml

@@ -2,51 +2,56 @@
 title "Добавление Поставщика к адресу"
 actor user
 boundary "MobileApp" as mobapp
-entity "DB MobileApp" as dbmob
 control "BACK" as back
 entity "DB BACK" as db
 control "A3 API" as a3
 ' сделать альтернативу с вводом данных в полях из выпадающего списка при нажатии на отдельного Поставщика
 
-user -> mobapp : переход на добавление отдельного Поставщика
+user -> mobapp : выбор Поставщика из предложенного списка
 activate mobapp
-    mobapp -> mobapp : switchScreen [отображение необходимых полей\nввода по Поставщику listProviders/providerId\nиз listProviders/providerId/params]
-    'mobapp -> back : getProviderParams (listProviders/providerId)\n[Получение необходимых полей\nдля данного Поставщика]
-    mobapp --> user : введите данные
+    mobapp -> mobapp : отображение первичной формы ввода данных\n[данные из listProviders]
+    mobapp --> user : "Введите начальные данные"
 deactivate mobapp
 
-...ожидание ввода данных...
-user ->>  mobapp : Ввод данных
-user -> mobapp : Нажатие "Далее"
+...ожидание ввода данных клиентом...
+
+user -> mobapp : ввод данных
 activate mobapp
-    mobapp -> back : searchInProvider(providerId, param1, param2...) [поиск введённых данных]
+    mobapp -> back : request: checkUserData (providerId, step=first, addressId, [outData])
     activate back
-        back -> a3 : searchInProvider(providerId, param1, param2...) [поиск введённых данных]
-alt Данные не найдены
-        a3 --> back : result NotFound
-        back --> mobapp : result NotFound
-        mobapp --> user : Данные не найдены [индикация]
-'else Необходимо уточнение (доввод данных)
-'        a3 --> back : result needMoreInfo (providerId, param1, param2...)
-'        back --> mobapp : result needMoreInfo (providerId, param1, param2...)
-'        mobapp -> mobapp : switchScreen [отображение дополнительных полей ввода для идентификации клиента]
-'        mobapp --> user : введите дополнительные данные
-'
-'        ...ожидание ввода данных...
-'
-'        user ->>  mobapp : Ввод дополнительных данных
-'        user -> mobapp : Нажатие "Далее"
-else Данные найдены
-         a3 --> back : result searchSuccess (providerId, info, invoice...)
-         back -> db : addNewProvider (addressId, providerId, params, info...)
-         activate db
-            db --> back : result success
-         deactivate db
-         back --> mobapp : result searchSuccess (providerId, info, invoice...)
-         mobapp -> mobapp : switchScreen [отображение экрана оплаты]
-         mobapp --> user : Оплатить, добавить дополнительного Поставщика\nили перейти на дашборд [завершение добавления Поставщика к адресу]
-end
+        back -> a3 : request: checkUserData (providerId, [outData])
+        activate a3
+loop пока не step is final
+
+alt step is progress
+            a3 --> back : response: checkUserData (providerId, step=progress, [inData])
+        deactivate a3
+        back --> mobapp : response: checkUserData (providerId, addressId, step=progress, [inData])
     deactivate back
+    mobapp -> mobapp: отображение следующей формы ввода данных\n[данные из inData]
+    mobapp -> user : данные корректны, введите дополнительные
 deactivate mobapp
 
+...ожидание ввода данных клиентом...
+
+user -> mobapp : ввод дополнительных данных
+activate mobapp
+    mobapp -> back : request: checkUserData (providerId, step=progress, addressId, [outData])
+    activate back
+        back -> a3 : request: checkUserData (providerId, [outData])
+
+else step is final
+            activate a3
+                a3 --> back : response: checkUserData (providerId, step=final, [inData])
+            deactivate a3
+            back ->> db : save providerUserData in addressId
+            back --> mobapp : response: checkUserData (providerId, addressId, step=final)
+        deactivate back
+    mobapp -> mobapp : отображение выбора "оплата счёта" или "переход на дашборд"
+    mobapp --> user : Оплатить счёт или перейти на дашборд?
+end
+
+deactivate mobapp
+
+end
 @enduml
