@@ -5,7 +5,6 @@ boundary "MobileApp" as mobapp
 entity "DB MobileApp" as dbmob
 control "BACK" as back
 entity "DB BACK" as db
-control "A3 API" as a3
 
 user -> mobapp : Определение задолженности/группы задолженностей
 activate mobapp
@@ -18,17 +17,7 @@ loop для каждой задолженности
           activate db
               db --> back : response : getProviderPaymentData (userId, providerId, paymentData)
           deactivate db
-          back -> a3 : request: checkPayment (paymentData)
-          activate a3
-alt checkPayment (true)
-              a3 --> back : response: checkPayment (true)
-          back --> back : дополнение контейнера [providerId, paymentData] данными
-else checkPayment (false)
-              a3 --> back : response: checkPayment (false)
-          deactivate a3
-
-          back --> back : дополнение контейнера [providerId, paymentData=null] данными
-end
+          back -> back : дополнение контейнера [providerId, paymentData=null] данными
 end
           back --> mobapp : response : getProviderPaymentData (userId, [providerId, paymentData])
       deactivate back
