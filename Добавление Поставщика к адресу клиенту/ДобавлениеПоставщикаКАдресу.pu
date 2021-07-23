@@ -47,8 +47,8 @@ else step is final
             back ->> db : save providerUserData in addressId
             back --> mobapp : response: checkUserData (providerId, addressId, step=final)
         deactivate back
-    mobapp -> mobapp : отображение выбора "оплата счёта" или "переход на дашборд"
-    mobapp --> user : Оплатить счёт или перейти на дашборд?
+    mobapp -> mobapp : отображение кнопки "Подтвердить"
+    mobapp --> user : "Подтвердите введённые данные"
 end
 
 deactivate mobapp

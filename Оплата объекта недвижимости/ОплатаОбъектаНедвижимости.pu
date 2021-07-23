@@ -29,17 +29,7 @@ loop для каждой задолженности в объекте
           activate db
               db --> back : response : getProviderPaymentData (userId, providerId, paymentData)
           deactivate db
-          back -> a3 : request: checkPayment (paymentData)
-          activate a3
-alt checkPayment (true)
-              a3 --> back : response: checkPayment (true)
-          back --> back : дополнение контейнера [addressId, providerId, paymentData] данными
-else checkPayment (false)
-              a3 --> back : response: checkPayment (false)
-          deactivate a3
-
-          back --> back : дополнение контейнера [addressId, providerId, paymentData=null] данными
-end
+          back -> back : дополнение контейнера [addressId, providerId, paymentData=null] данными
 end
 end
           back --> mobapp : response : getProviderPaymentData (userId, [addressId, providerId, paymentData])
